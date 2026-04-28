@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CalSNS - Standard Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
+    <style>
+        /* カレンダーの見た目と高さを調整 */
+        #calendar { background: white; padding: 15px; border-radius: 12px; min-height: 650px; }
+        .fc-event { cursor: pointer; }
+        /* スクロールバーの見た目 */
+        .custom-scroll::-webkit-scrollbar { width: 5px; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-gray-100 p-4">
+
+    <div class="max-w-7xl mx-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold text-gray-800">CalSNS</h1>
+            {% if current_user %}
+                <div class="text-sm bg-white px-4 py-2 rounded-full shadow-sm">
+                    ログイン中: <span class="font-bold text-blue-600">{{ current_user }}</span> 
+                    <span class="mx-2 text-gray-300">|</span>
+                    <a href="/logout" class="text-red-500 hover:underline">ログアウト</a>
+                </div>
+            {% endif %}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            
+            <div class="md:col-span-1 space-y-6">
+                
+                {% if current_user %}
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                        <span class="w-2 h-5 bg-blue-500 rounded-full"></span>新規投稿
+                    </h2>
+                    <form action="/add_event" method="post" enctype="multipart/form-data" class="space-y-4">
+                        <input type="date" name="event_date" class="border border-gray-200 p-2.5 w-full rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none" required>
+                        <textarea name="title" placeholder="今日のできごとを書きましょう" class="border border-gray-200 p-2.5 w-full rounded-lg text-sm h-24 resize-none focus:ring-2 focus:ring-blue-500 outline-none" required></textarea>
+                        <div class="bg-gray-50 p-2 rounded-lg border border-dashed border-gray-300">
+                            <input type="file" name="image" class="text-xs w-full">
+                        </div>
+                        <button type="submit" class="w-full bg-blue-600 text-white py-2.5 rounded-lg font-bold hover:bg-blue-700 transition active:scale-95">投稿する</button>
+                    </form>
+                </div>
+                {% else %}
+                <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                    <div id="login-section">
+                        <h2 class="text-lg font-bold mb-4">ログイン</h2>
+                        <form action="/login" method="post" class="space-y-3">
+                            <input type="text" name="username" placeholder="ユーザー名" class="border border-gray-200 p-2 w-full rounded-lg text-sm" required>
+                            <input type="password" name="password" placeholder="パスワード" class="border border-gray-200 p-2 w-full rounded-lg text-sm" required>
+                            <button type="submit" class="w-full bg-blue-500 text-white py-2 rounded-lg font-bold hover:bg-blue-600 transition">ログイン</button>
+                        </form>
+                        <p class="text-[10px] text-center mt-4 text-gray-400">
+                            はじめての方は <button onclick="toggleAuth()" class="text-blue-500 font-bold hover:underline">新規登録</button>
+                        </p>
+                    </div>
+                    <div id="register-section" class="hidden">
+                        <h2 class="text-lg font-bold mb-4 text-green-700">新規登録</h2>
+                        <form action="/register" method="post" class="space-y-3">
+                            <input type="text" name="username" placeholder="希望のユーザー名" class="border border-gray-200 p-2 w-full rounded-lg text-sm" required>
+                            <input type="password" name="password" placeholder="パスワード" class="border border-gray-200 p-2 w-full rounded-lg text-sm" required>
+                            <button type="submit" class="w-full bg-green-600 text-white py-2 rounded-lg font-bold hover:bg-green-700 transition">アカウント作成</button>
+                        </form>
+                        <p class="text-[10px] text-center mt-4 text-gray-400">
+                            既に登録済みなら <button onclick="toggleAuth()" class="text-blue-500 font-bold hover:underline">ログインへ</button>
+                        </p>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="space-y-4 max-h-[600px] overflow-y-auto pr-2 custom-scroll">
+                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-widest px-1">Recent Feed</h3>
+                    {% for event in events %}
+                    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 hover:border-blue-200 transition">
+                        <div class="flex justify-between items-start">
+                            <p class="text-gray-400 text-[10px] font-bold">{{ event.date }}</p>
+                            {% if event.user == current_user %}
+                            <form action="/delete/{{ event.id }}" method="post" 
+                                  onsubmit="return confirm('投稿を削除しますか？') && confirm('本当に削除してよろしいですね？（元に戻せません）');">
+                                <button type="submit" class="text-gray-300 hover:text-red-500 text-lg transition">×</button>
+                            </form>
+                            {% endif %}
+                        </div>
+                        <p class="text-xs font-bold text-blue-600 mt-1">@{{ event.user }}</p>
+                        <p class="text-sm mt-1 text-gray-700">{{ event.title }}</p>
+                        
+                        <form action="/like/{{ event.id }}" method="post" class="mt-3">
+                            <button type="submit" class="text-[11px] text-gray-500 bg-gray-50 border border-gray-100 px-2 py-1 rounded-md hover:bg-red-50 hover:text-red-500 transition">
+                                ❤️ {{ event.likes }}
+                            </button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="md:col-span-2">
+                <div id="calendar" class="shadow-sm border border-gray-200"></div>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="eventModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4" onclick="if(event.target == this) closeModal()">
+        <div class="bg-white rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl animate-in zoom-in duration-200">
+            <div id="modalImageContainer" class="hidden bg-black flex items-center justify-center">
+                <img id="modalImage" src="" class="w-full h-auto max-h-[450px] object-contain mx-auto shadow-inner">
+            </div>
+            <div class="p-8">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <span id="modalUser" class="text-blue-600 font-extrabold text-sm tracking-wide"></span>
+                        <p id="modalDate" class="text-xs text-gray-400 font-medium"></p>
+                    </div>
+                    <button onclick="closeModal()" class="text-gray-300 hover:text-gray-600 text-3xl font-light">&times;</button>
+                </div>
+                <h2 id="modalTitle" class="text-xl font-bold text-gray-800 mb-8 leading-relaxed"></h2>
+                
+                <button onclick="closeModal()" class="w-full bg-gray-900 text-white py-3.5 rounded-xl font-bold hover:bg-gray-800 transition active:scale-95 shadow-lg">
+                    閉じる
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ログイン・新規登録の切り替え用
+        function toggleAuth() {
+            const login = document.getElementById('login-section');
+            const register = document.getElementById('register-section');
+            login.classList.toggle('hidden');
+            register.classList.toggle('hidden');
+        }
+
+        // カレンダーの初期化
+        document.addEventListener('DOMContentLoaded', function() {
+            var calendarEl = document.getElementById('calendar');
+            var calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'ja',
+                height: 'parent',
+                headerToolbar: { left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek' },
+                events: [
+                    {% for event in events %}
+                    { 
+                        id: '{{ event.id }}',
+                        title: '{{ event.user }}: {{ event.title[:15] }}', 
+                        start: '{{ event.date }}',
+                        extendedProps: { 
+                            user: '{{ event.user }}', 
+                            pureTitle: '{{ event.title }}', 
+                            imageUrl: '{{ event.image_url }}',
+                            date: '{{ event.date }}' 
+                        },
+                        backgroundColor: '#eff6ff',
+                        textColor: '#1d4ed8',
+                        borderColor: '#dbeafe'
+                    },
+                    {% endfor %}
+                ],
+                // 予定をタップした時の処理
+                eventClick: function(info) {
+                    const props = info.event.extendedProps;
+                    document.getElementById('modalUser').innerText = "@" + props.user;
+                    document.getElementById('modalDate').innerText = props.date + " の投稿";
+                    document.getElementById('modalTitle').innerText = props.pureTitle;
+                    
+                    const imgContainer = document.getElementById('modalImageContainer');
+                    const imgTag = document.getElementById('modalImage');
+                    
+                    // 画像がある時だけ大きく表示
+                    if (props.imageUrl && props.imageUrl !== "" && props.imageUrl !== "None") {
+                        imgTag.src = props.imageUrl;
+                        imgContainer.classList.remove('hidden');
+                    } else {
+                        imgContainer.classList.add('hidden');
+                        imgTag.src = "";
+                    }
+                    document.getElementById('eventModal').classList.remove('hidden');
+                }
+            });
+            calendar.render();
+        });
+
+        function closeModal() {
+            document.getElementById('eventModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
